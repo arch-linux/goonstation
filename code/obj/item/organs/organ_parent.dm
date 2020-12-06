@@ -21,14 +21,30 @@
 	throw_range = 5
 	stamina_damage = 5
 	stamina_cost = 5
-	edible = 1
+	edible = 1	// currently overridden by material settings
 	module_research = list("medicine" = 2) // why would you put this below the throw_impact() stuff
 	module_research_type = /obj/item/organ // were you born in a fuckin barn
 	var/mob/living/carbon/human/donor = null // if I can't use "owner" I can at least use this
+	/// Whoever had this organ first, the original owner
+	var/mob/living/carbon/human/donor_original = null // So people'll know if a lizard's wearing someone else's tail
+	var/datum/appearanceHolder/donor_AH //
 	var/donor_name = null // so you don't get dumb "Unknown's skull mask" shit
 	var/donor_DNA = null
 	var/datum/organHolder/holder = null
 	var/list/organ_abilities = null
+
+	// So we can have an organ have a visible counterpart while inside someone, like a tail or some kind of krang
+	// if you're making a tail, you need to have at least organ_image_under_suit_1 defined, or else it wont work
+	var/organ_image_icon = null		// The icon group we'll be using, such as 'icons/effects/genetics.dmi'
+	var/organ_image_over_suit = null		// Shows up over our suit, usually while the mob is facing north
+	var/organ_image_under_suit_1 = null	// Shows up under our suit, usually while the mob is facing anywhere else
+	var/organ_image_under_suit_2 = null	// If our organ needs another picture, usually for another coloration
+
+	var/organ_color_1 = "#FFFFFF"		// Typically used to colorize the organ image
+	var/organ_color_2 = "#FFFFFF"		// Might also be usable to color organs if their owner has funky colored blood. Shrug.
+
+	/// If our organ's been severed and reattached. Used by heads to preserve their appearance across icon updates if reattached
+	var/transplanted = FALSE
 
 	var/op_stage = 0.0
 	var/brute_dam = 0
@@ -88,19 +104,21 @@
 
 	New(loc, datum/organHolder/nholder)
 		..()
-		SPAWN_DBG(0)
-			if (istype(nholder) && nholder.donor)
-				src.holder = nholder
-				src.donor = nholder.donor
-			if (src.donor)
-				if (src.donor.real_name)
-					src.donor_name = src.donor.real_name
-					src.name = "[src.donor_name]'s [initial(src.name)]"
-				else if (src.donor.name)
-					src.donor_name = src.donor.name
-					src.name = "[src.donor_name]'s [initial(src.name)]"
-				src.donor_DNA = src.donor.bioHolder ? src.donor.bioHolder.Uid : null
-			src.setMaterial(getMaterial(made_from), appearance = 0, setname = 0)
+		if (istype(nholder) && nholder.donor)
+			src.holder = nholder
+			src.donor = nholder.donor
+		if (src.donor)
+			src.donor_original = src.donor
+			if (src.donor.bioHolder)
+				src.donor_AH = src.donor.bioHolder.mobAppearance
+			if (src.donor.real_name)
+				src.donor_name = src.donor.real_name
+				src.name = "[src.donor_name]'s [initial(src.name)]"
+			else if (src.donor.name)
+				src.donor_name = src.donor.name
+				src.name = "[src.donor_name]'s [initial(src.name)]"
+			src.donor_DNA = src.donor.bioHolder ? src.donor.bioHolder.Uid : null
+		src.setMaterial(getMaterial(made_from), appearance = 0, setname = 0)
 
 	disposing()
 		if (src.holder)
@@ -109,24 +127,22 @@
 					continue
 				if(holder.organ_list[thing] == src)
 					holder.organ_list[thing] = null
-
-			//mbc : this following one might be unnecessary but organs are now GC-clean so im afraid to touch it
-			for(var/i = 1, i < src.holder.organ_list.len, i++)
-				if (src.holder.organ_list[i] == src)
-					src.holder.organ_list[i] = null
+				if(thing in holder.vars && holder.vars[thing] == src) // organ holders suck, refactor when they no longer suck
+					holder.vars[thing] = null
 
 
-		if (donor && donor.organs) //not all mobs have organs/organholders (fish)
+		if (donor?.organs) //not all mobs have organs/organholders (fish)
 			donor.organs -= src
 		donor = null
 
 		if (bones)
-			bones.disposing()
+			bones.dispose()
 
 		holder = null
 		..()
 
-	throw_impact(var/turf/T)
+	throw_impact(atom/A, datum/thrown_thing/thr)
+		var/turf/T = get_turf(A) //
 		playsound(src.loc, "sound/impact_sounds/Flesh_Stab_2.ogg", 100, 1)
 		if (T && !src.decal_done && ispath(src.created_decal))
 			playsound(src.loc, "sound/impact_sounds/Slimy_Splat_1.ogg", 100, 1)
@@ -140,12 +156,9 @@
 	proc/on_life(var/mult = 1)
 		if (holder && (src.broken || src.get_damage() > MAX_DAMAGE) )
 			return 0
-		if (emagged && prob(30))	//don't really need to check for robotic too since no other types of organs can or should be emagged
-			take_damage(1, 0, 0)
-
 		return 1
 
-	//What should happen each life tick when an organ is broken.
+	/// What should happen each life tick when an organ is broken.
 	proc/on_broken(var/mult = 1)
 		//stupid check ikr? prolly remove.
 		if (broken)
@@ -167,6 +180,8 @@
 		var/mob/living/carbon/human/H = M
 		src.donor = H
 		src.holder = H.organHolder
+		if(!istype(src.donor_original)) // If we were spawned without an owner, they're our new original owner
+			src.donor_original = H
 
 
 		//Kinda repeated below too. Cure the organ failure disease if this organ is above a certain HP
@@ -174,16 +189,7 @@
 			if (!src.broken  && failure_disease)
 				src.donor.cure_disease(failure_disease)
 
-			//all robotic organs have a base stamina buff, some have others, see heart. maybe lungs in future
-			if (src.robotic)
-				if (src.emagged)
-					src.donor.add_stam_mod_regen("cyber-[src.organ_name]", 5)
-					src.donor.add_stam_mod_max("cyber-[src.organ_name]", 20)
-				else
-					src.donor.add_stam_mod_regen("cyber-[src.organ_name]", 2)
-					src.donor.add_stam_mod_max("cyber-[src.organ_name]", 10)
-
-		if (islist(src.organ_abilities) && src.organ_abilities.len)
+		if (!broken && islist(src.organ_abilities) && src.organ_abilities.len)
 			var/datum/abilityHolder/organ/A = M.get_ability_holder(/datum/abilityHolder/organ)
 			if (!istype(A))
 				A = M.add_ability_holder(/datum/abilityHolder/organ)
@@ -200,14 +206,6 @@
 		if (src.donor)
 			if (failure_disease)
 				src.donor.cure_disease(failure_disease)
-
-			if (src.robotic)
-				if (src.emagged)
-					src.donor.remove_stam_mod_regen("cyber-[src.organ_name]")
-					src.donor.remove_stam_mod_max("cyber-[src.organ_name]")
-				else
-					src.donor.remove_stam_mod_regen("cyber-[src.organ_name]")
-					src.donor.remove_stam_mod_max("cyber-[src.organ_name]")
 
 		if (!src.donor_DNA && src.donor && src.donor.bioHolder)
 			src.donor_DNA = src.donor.bioHolder.Uid
@@ -229,7 +227,7 @@
 			return
 		if (user)
 			user.show_text("You disable the safety limiters on [src].", "red")
-		src.visible_message("<span style=\"color:red\"><B>[src] sparks and shudders oddly!</B></span>", 1)
+		src.visible_message("<span class='alert'><B>[src] sparks and shudders oddly!</B></span>", 1)
 		src.emagged = 1
 		return 1
 
@@ -262,14 +260,9 @@
 
 	//damage/heal obj. Provide negative values for healing.	//maybe I'll change cause I don't like this. But this functionality is found in some other damage procs for other things, might as well keep it consistent.
 	take_damage(brute, burn, tox, damage_type)
-#if ASS_JAM //timestop stuff
-		if (ishuman(donor))
-			var/mob/living/carbon/human/H = donor
-			if (H.paused)
-				H.pausedburn = max(0, H.pausedburn + burn)
-				H.pausedbrute = max(0, H.pausedbrute + brute)
-				return 0
-#endif
+		if(isvampire(donor) && !(istype(src, /obj/item/organ/chest) || istype(src, /obj/item/organ/head) || istype(src, /obj/item/skull) || istype(src, /obj/item/clothing/head/butt)))
+			return //vampires are already dead inside
+
 		src.brute_dam += brute
 		src.burn_dam += burn
 		src.tox_dam += tox
@@ -278,15 +271,15 @@
 		if (ishuman(donor))
 			var/mob/living/carbon/human/H = donor
 			//hit_twitch(H)		//no
-			H.UpdateDamage()
+			health_update_queue |= H
 			if (bone_system && src.bones && brute && prob(brute * 2))
 				src.bones.take_damage(damage_type)
 
 		// if (src.get_damage() >= MAX_DAMAGE)
 		if (brute_dam + burn_dam + tox_dam >= MAX_DAMAGE)
-			src.broken = 1
-			donor.contract_disease(failure_disease,null,null,1)
-
+			src.breakme()
+			donor?.contract_disease(failure_disease,null,null,1)
+		health_update_queue |= donor
 		return 1
 
 	heal_damage(brute, burn, tox)
@@ -295,6 +288,7 @@
 		src.brute_dam = max(0, src.brute_dam - brute)
 		src.burn_dam = max(0, src.burn_dam - burn)
 		src.tox_dam = max(0, src.tox_dam - tox)
+		health_update_queue |= donor
 		return 1
 
 	get_damage()
@@ -331,9 +325,9 @@
 
 		if (!H.organHolder.get_organ(src.organ_holder_name) && organ_location && organ_location.op_stage == src.organ_holder_required_op_stage)
 
-			H.tri_message("<span style=\"color:red\"><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] [src.organ_holder_location]!</span>",\
-			user, "<span style=\"color:red\">You [fluff] [src] into [user == H ? "your" : "[H]'s"] [src.organ_holder_location]!</span>",\
-			H, "<span style=\"color:red\">[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your [src.organ_holder_location]!</span>")
+			H.tri_message("<span class='alert'><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] [src.organ_holder_location]!</span>",\
+			user, "<span class='alert'>You [fluff] [src] into [user == H ? "your" : "[H]'s"] [src.organ_holder_location]!</span>",\
+			H, "<span class='alert'>[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your [src.organ_holder_location]!</span>")
 
 			if (user.find_in_hand(src))
 				user.u_equip(src)
@@ -343,3 +337,26 @@
 			return 1
 		else
 			return 0
+
+	proc/breakme()
+		if (!broken && islist(src.organ_abilities) && src.organ_abilities.len)// remove abilities when broken
+			var/datum/abilityHolder/aholder
+			if (src.donor && src.donor.abilityHolder)
+				aholder = src.donor.abilityHolder
+			else if (src.holder && src.holder.donor && src.holder.donor.abilityHolder)
+				aholder = src.holder.donor.abilityHolder
+			if (istype(aholder))
+				for (var/abil in src.organ_abilities)
+					src.remove_ability(aholder, abil)
+		src.broken = 1
+
+	proc/unbreakme()
+		if (broken && islist(src.organ_abilities) && src.organ_abilities.len) //put them back if fixed (somehow)
+			var/datum/abilityHolder/organ/A = donor?.get_ability_holder(/datum/abilityHolder/organ)
+			if (!istype(A))
+				A = donor?.add_ability_holder(/datum/abilityHolder/organ)
+			if (!A)
+				return
+			for (var/abil in src.organ_abilities)
+				src.add_ability(A, abil)
+		src.broken = 0

@@ -99,8 +99,9 @@
 		brutevuln = 0.2
 		firevuln = 0.5
 		icon_state = "turtle-shell"
+		density = 0
 
-		src.visible_message("<span style=\"color:red\"><b>[src]</b> retreats into their shell!")
+		src.visible_message("<span class='alert'><b>[src]</b> retreats into their shell!")
 		return 1
 
 	//sets shellcount to 0 and changes task to "thinking". changes icon state and protections.
@@ -112,21 +113,18 @@
 		brutevuln = 0.7
 		firevuln = 1
 		icon_state = "turtle"
+		density = 1
 
-		src.visible_message("<span style=\"color:blue\"><b>[src]</b> comes out of their shell!")
+		src.visible_message("<span class='notice'><b>[src]</b> comes out of their shell!")
 		return 1
 
 	//Just completely override this to change values of severity. Kinda ugly, but it's what I want!
 	ex_act(severity)
-#if ASS_JAM //timestop stuff
-		if (src.shell_count && !src.paused)
-			shell_count = 0
-			on_wake()
-#else
+
 		if (src.shell_count)
 			shell_count = 0
 			on_wake()
-#endif
+
 		on_damaged()
 		//high chance to suvive explosions
 		if (prob(50))
@@ -143,6 +141,7 @@
 		if (src.health <= 0)
 			src.CritterDeath()
 
+
 //The HoS's pet turtle. He can wear the beret!
 /obj/critter/turtle/sylvester
 	name = "Sylvester"
@@ -150,8 +149,7 @@
 	icon_state = "turtle"		//I kinda wanna make sylvester stand out a bit amongs other turtles, even without the hat.
 	health = 100
 	generic = 0
-
-
+	is_pet = 2
 //Starts with the beret on!
 /obj/critter/turtle/sylvester/HoS
 

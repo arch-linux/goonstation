@@ -66,27 +66,27 @@
 			target_organ_location = pick("right", "left")
 
 		if (target_organ_location == "right" && !H.organHolder.right_eye)
-			H.tri_message("<span style=\"color:red\"><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] right eye socket!</span>",\
-			user, "<span style=\"color:red\">You [fluff] [src] into [user == H ? "your" : "[H]'s"] right eye socket!</span>",\
-			H, "<span style=\"color:red\">[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your right eye socket!</span>")
+			H.tri_message("<span class='alert'><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] right eye socket!</span>",\
+			user, "<span class='alert'>You [fluff] [src] into [user == H ? "your" : "[H]'s"] right eye socket!</span>",\
+			H, "<span class='alert'>[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your right eye socket!</span>")
 
 			if (user.find_in_hand(src))
 				user.u_equip(src)
 			H.organHolder.receive_organ(src, "right_eye", 2.0)
 			H.update_body()
 		else if (target_organ_location == "left" && !H.organHolder.left_eye)
-			H.tri_message("<span style=\"color:red\"><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] left eye socket!</span>",\
-			user, "<span style=\"color:red\">You [fluff] [src] into [user == H ? "your" : "[H]'s"] left eye socket!</span>",\
-			H, "<span style=\"color:red\">[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your left eye socket!</span>")
+			H.tri_message("<span class='alert'><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] left eye socket!</span>",\
+			user, "<span class='alert'>You [fluff] [src] into [user == H ? "your" : "[H]'s"] left eye socket!</span>",\
+			H, "<span class='alert'>[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your left eye socket!</span>")
 
 			if (user.find_in_hand(src))
 				user.u_equip(src)
 			H.organHolder.receive_organ(src, "left_eye", 2.0)
 			H.update_body()
 		else
-			H.tri_message("<span style=\"color:red\"><b>[user]</b> tries to [fluff] the [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] right eye socket!<br>But there's something already there!</span>",\
-			user, "<span style=\"color:red\">You try to [fluff] the [src] into [user == H ? "your" : "[H]'s"] right eye socket!<br>But there's something already there!</span>",\
-			H, "<span style=\"color:red\">[H == user ? "You" : "<b>[user]</b>"] [H == user ? "try" : "tries"] to [fluff] the [src] into your right eye socket!<br>But there's something already there!</span>")
+			H.tri_message("<span class='alert'><b>[user]</b> tries to [fluff] the [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] right eye socket!<br>But there's something already there!</span>",\
+			user, "<span class='alert'>You try to [fluff] the [src] into [user == H ? "your" : "[H]'s"] right eye socket!<br>But there's something already there!</span>",\
+			H, "<span class='alert'>[H == user ? "You" : "<b>[user]</b>"] [H == user ? "try" : "tries"] to [fluff] the [src] into your right eye socket!<br>But there's something already there!</span>")
 			return 0
 
 		return 1
@@ -187,8 +187,7 @@
 		if (M.client)
 			src.assigned = M.client
 			SPAWN_DBG(-1)
-				if (!(src in processing_items))
-					processing_items.Add(src)
+				processing_items |= src
 		return
 
 	on_removal()
@@ -262,6 +261,14 @@
 	color_b = 0.95
 	change_iris = 0
 
+	on_transplant(mob/M)
+		. = ..()
+		APPLY_MOB_PROPERTY(M, PROP_SPECTRO, src)
+
+	on_removal()
+		REMOVE_MOB_PROPERTY(donor, PROP_SPECTRO, src)
+		. = ..()
+
 /obj/item/organ/eye/cyber/prodoc
 	name = "\improper ProDoc Healthview cybereye"
 	organ_name = "\improper ProDoc Healthview cybereye"
@@ -307,8 +314,7 @@
 		if (M.client)
 			src.assigned = M.client
 			SPAWN_DBG(-1)
-				if (!(src in processing_items))
-					processing_items.Add(src)
+				processing_items |= src
 		return
 
 	on_removal()

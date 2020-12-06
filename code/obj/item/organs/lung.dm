@@ -10,6 +10,7 @@
 	organ_holder_required_op_stage = 2.0
 	icon_state = "lung_R"
 	failure_disease = /datum/ailment/disease/respiratory_failure
+	var/temp_tolerance = T0C+66
 
 	on_life(var/mult = 1)
 		if (!..())
@@ -17,16 +18,31 @@
 		if (body_side == L_ORGAN)
 			if (src.holder.left_lung && src.holder.left_lung.get_damage() > FAIL_DAMAGE && prob(src.get_damage() * 0.2))
 				donor.contract_disease(failure_disease,null,null,1)
-		else 
+		else
 			if (src.holder.right_lung && src.holder.right_lung.get_damage() > FAIL_DAMAGE && prob(src.get_damage() * 0.2))
 				donor.contract_disease(failure_disease,null,null,1)
 		return 1
-		
+
+	on_transplant(var/mob/M as mob)
+		..()
+		if (src.robotic)
+			src.donor.add_stam_mod_regen(icon_state, 2)
+			src.donor.add_stam_mod_max(icon_state, 10)
+		return
+
+	on_removal()
+		..()
+		if (donor)
+			if (src.robotic)
+				src.donor.remove_stam_mod_regen(icon_state)
+				src.donor.remove_stam_mod_max(icon_state)
+		return
+
 	// on_broken()
 	// 	if (body_side == L_ORGAN)
 	// 		if (src.holder.left_lung && src.holder.left_lung.get_damage() > FAIL_DAMAGE && prob(src.get_damage() * 0.2))
 	// 			donor.contract_disease(failure_disease,null,null,1)
-	// 	else 
+	// 	else
 	// 		if (src.holder.right_lung && src.holder.right_lung.get_damage() > FAIL_DAMAGE && prob(src.get_damage() * 0.2))
 	// 			donor.contract_disease(failure_disease,null,null,1)
 
@@ -58,27 +74,27 @@
 				target_organ_location = pick("right", "left")
 
 			if (target_organ_location == "right" && !H.organHolder.right_lung)
-				H.tri_message("<span style=\"color:red\"><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] right lung socket!</span>",\
-				user, "<span style=\"color:red\">You [fluff] [src] into [user == H ? "your" : "[H]'s"] right lung socket!</span>",\
-				H, "<span style=\"color:red\">[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your right lung socket!</span>")
+				H.tri_message("<span class='alert'><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] right lung socket!</span>",\
+				user, "<span class='alert'>You [fluff] [src] into [user == H ? "your" : "[H]'s"] right lung socket!</span>",\
+				H, "<span class='alert'>[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your right lung socket!</span>")
 
 				if (user.find_in_hand(src))
 					user.u_equip(src)
 				H.organHolder.receive_organ(src, "right_lung", 2.0)
 				H.update_body()
 			else if (target_organ_location == "left" && !H.organHolder.left_lung)
-				H.tri_message("<span style=\"color:red\"><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] left lung socket!</span>",\
-				user, "<span style=\"color:red\">You [fluff] [src] into [user == H ? "your" : "[H]'s"] left lung socket!</span>",\
-				H, "<span style=\"color:red\">[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your left lung socket!</span>")
+				H.tri_message("<span class='alert'><b>[user]</b> [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] left lung socket!</span>",\
+				user, "<span class='alert'>You [fluff] [src] into [user == H ? "your" : "[H]'s"] left lung socket!</span>",\
+				H, "<span class='alert'>[H == user ? "You" : "<b>[user]</b>"] [fluff][fluff == "smoosh" || fluff == "squish" ? "es" : "s"] [src] into your left lung socket!</span>")
 
 				if (user.find_in_hand(src))
 					user.u_equip(src)
 				H.organHolder.receive_organ(src, "left_lung", 2.0)
 				H.update_body()
 			else
-				H.tri_message("<span style=\"color:red\"><b>[user]</b> tries to [fluff] the [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] right lung socket!<br>But there's something already there!</span>",\
-				user, "<span style=\"color:red\">You try to [fluff] the [src] into [user == H ? "your" : "[H]'s"] right lung socket!<br>But there's something already there!</span>",\
-				H, "<span style=\"color:red\">[H == user ? "You" : "<b>[user]</b>"] [H == user ? "try" : "tries"] to [fluff] the [src] into your right lung socket!<br>But there's something already there!</span>")
+				H.tri_message("<span class='alert'><b>[user]</b> tries to [fluff] the [src] into [H == user ? "[his_or_her(H)]" : "[H]'s"] right lung socket!<br>But there's something already there!</span>",\
+				user, "<span class='alert'>You try to [fluff] the [src] into [user == H ? "your" : "[H]'s"] right lung socket!<br>But there's something already there!</span>",\
+				H, "<span class='alert'>[H == user ? "You" : "<b>[user]</b>"] [H == user ? "try" : "tries"] to [fluff] the [src] into your right lung socket!<br>But there's something already there!</span>")
 				return 0
 
 			return 1
@@ -106,9 +122,59 @@
 	name = "cyberlungs"
 	desc = "Fancy robotic lungs!"
 	icon_state = "cyber-lungs_L"
+	made_from = "pharosium"
 	robotic = 1
 	edible = 0
 	mats = 6
+	temp_tolerance = T0C+500
+	var/overloading = 0
+
+	add_ability(var/datum/abilityHolder/aholder, var/abil)
+		if (!ispath(abil, /datum/targetable/organAbility/rebreather) || !aholder)
+			return ..()
+		var/datum/targetable/organAbility/rebreather/OA = aholder.getAbility(abil)//addAbility(abil)
+		if (istype(OA)) // already has an emagged lung. You need both for the ability to function
+			OA.linked_organ = list(OA.linked_organ, src)
+		else
+			OA = aholder.addAbility(abil)
+			if (istype(OA))
+				OA.linked_organ = src
+
+	remove_ability(var/datum/abilityHolder/aholder, var/abil)
+		if (!ispath(abil, /datum/targetable/organAbility/rebreather) || !aholder)
+			return ..()
+		var/datum/targetable/organAbility/rebreather/OA = aholder.getAbility(abil)
+		if (!OA) // what??
+			return
+		if (islist(OA.linked_organ)) // two emagged lungs, just remove us :3
+			var/list/lorgans = OA.linked_organ
+			if(OA.is_on)
+				OA.handleCast() //turn it off - we only have one left!
+			lorgans -= src // remove us from the list so only the other lung is left and thus will be lorgans[1]
+			OA.linked_organ = lorgans[1]
+		else // just us!
+			aholder.removeAbility(abil)
+
+	on_life(var/mult = 1)
+		if(!..())
+			return 0
+
+		if(overloading)
+			src.take_damage(0, 1 * mult)
+		return 1
+
+	disposing()
+		if(donor)
+			REMOVE_MOB_PROPERTY(donor, PROP_REBREATHING, "cyberlungs")
+		..()
+
+	emag_act(mob/user, obj/item/card/emag/E)
+		..()
+		organ_abilities = list(/datum/targetable/organAbility/rebreather)
+
+	demag(mob/user)
+		..()
+		organ_abilities = initial(organ_abilities)
 
 /obj/item/organ/lung/cyber/left
 	name = "left lung"

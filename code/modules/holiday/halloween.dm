@@ -27,18 +27,6 @@
 //deathbutton to deathbutton.dm
 
 /*
- *	HALLOWEEN LANDMARK
- */
-/obj/landmark/halloween
-	name = "halloween spawn"
-
-	New()
-		..()
-		if(istype(src.loc, /turf))
-			halloweenspawn.Add(src.loc)
-		qdel(src)
-
-/*
  *	DEATH PLAQUE
  */
 
@@ -88,7 +76,7 @@
 		//This dude is no Fonz
 		if (user.a_intent == "harm")
 			user.visible_message("<span class='combat'><b>[user]</b> punches the [src]!</span>","You punch the [src].  Your hand hurts.")
-			playsound(src.loc, pick('sound/impact_sounds/Generic_Punch_2.ogg','sound/impact_sounds/Generic_Punch_3.ogg','sound/impact_sounds/Generic_Punch_4.ogg','sound/impact_sounds/Generic_Punch_5.ogg'), 100, 1)
+			playsound(src.loc, pick(sounds_punch), 100, 1)
 			user.TakeDamage(user.hand == 1 ? "l_arm" : "r_arm", 0, rand(1, 4))
 			return
 		else
@@ -103,7 +91,7 @@
 		return
 
 	proc/mindswap()
-		src.visible_message("<span style=\"color:red\">The [src] activates!</span>")
+		src.visible_message("<span class='alert'>The [src] activates!</span>")
 		playsound(src.loc,"sound/effects/ghost2.ogg", 100, 1)
 
 		var/list/transfer_targets = list()
@@ -173,9 +161,9 @@
 		return
 
 	proc/telehop()
-		var/turf/T = pick(blobstart)
+		var/turf/T = pick_landmark(LANDMARK_BLOBSTART)
 		if(T)
-			src.visible_message("<span style=\"color:red\">[src] disappears!</span>")
+			src.visible_message("<span class='alert'>[src] disappears!</span>")
 			playsound(src.loc,"sound/effects/singsuck.ogg", 100, 1)
 			src.set_loc(T)
 		return
@@ -196,13 +184,11 @@
 	icon = 'icons/obj/chemical.dmi'
 	icon_state = "beaker0"
 	item_state = "beaker"
+	initial_volume = 50
 
 	New()
-		..() // CALL YOUR GODDAMN PARENTS GODDAMNIT JESUS FUCKING CHRIST
-		var/datum/reagents/R = new/datum/reagents(50)
-		reagents = R
-		R.my_atom = src
-		R.add_reagent("strange_reagent", 50)
+		..()
+		reagents.add_reagent("strange_reagent", 50)
 
 /obj/item/storage/secure/ssafe/hjam
 	name = "Gun Storage"
@@ -351,8 +337,7 @@
 					stoneman.layer = MOB_LAYER
 
 					var/icon/composite = icon(M.icon, M.icon_state, M.dir, 1)
-					for(var/O in M.overlays)
-						var/image/I = O
+					for (var/image/I as() in M.overlays)
 						composite.Blend(icon(I.icon, I.icon_state, I.dir, 1), ICON_OVERLAY)
 					composite.ColorTone( rgb(188,188,188) )
 					stoneman.icon = composite
@@ -422,7 +407,7 @@
 		if(pictures_left <= 0)
 			pictures_left = initial(src.pictures_left)
 		src.desc = "A one use - polaroid camera. [pictures_left] photos left."
-		boutput(user, "<span style=\"color:blue\">[pictures_left] photos left.</span>")
+		boutput(user, "<span class='notice'>[pictures_left] photos left.</span>")
 		can_use = 0
 		SPAWN_DBG(5 SECONDS) can_use = 1
 */
@@ -436,8 +421,8 @@
 			if(!(src.client && src.client.holder))
 				src.emote_allowed = 0
 
-			if(src.gender == MALE) playsound(get_turf(src), "sound/voice/screams/male_scream.ogg", 100, 0, 0, 0.91)
-			else playsound(get_turf(src), "sound/voice/screams/female_scream.ogg", 100, 0, 0, 0.9)
+			if(src.gender == MALE) playsound(get_turf(src), "sound/voice/screams/male_scream.ogg", 100, 0, 0, 0.91, channel=VOLUME_CHANNEL_EMOTE)
+			else playsound(get_turf(src), "sound/voice/screams/female_scream.ogg", 100, 0, 0, 0.9, channel=VOLUME_CHANNEL_EMOTE)
 			SPAWN_DBG(5 SECONDS)
 				src.emote_allowed = 1
 			return "screams!"
@@ -510,14 +495,13 @@
 			stoneman.layer = MOB_LAYER
 
 			var/icon/composite = icon(M.icon, M.icon_state, M.dir, 1)
-			for(var/O in M.overlays)
-				var/image/I = O
+			for (var/image/I as() in M.overlays)
 				composite.Blend(icon(I.icon, I.icon_state, I.dir, 1), ICON_OVERLAY)
 			composite.ColorTone( rgb(188,188,188) )
 			stoneman.icon = composite
 
 			holder.set_loc(stoneman)
-			stoneman.dir = get_dir(stoneman, src)
+			stoneman.set_dir(get_dir(stoneman, src))
 
 		else
 			. += desc
@@ -675,17 +659,17 @@
 	proc/scare_some_people()
 		src.spooky_shake()
 		playsound(get_turf(src), src.trigger_sound, 100, 0)
-		src.visible_message("<span style='color:red'><b>\The [src] comes to life and starts making an unearthly, haunting wail!</b></span>")
+		src.visible_message("<span class='alert'><b>\The [src] comes to life and starts making an unearthly, haunting wail!</b></span>")
 		for (var/mob/M in viewers(src))
 			if (prob(66))
-				var/msg = pick("<span style='color:red'><b>You're [pick("hella","super","very","extremely","completely","totally")] [pick("scared","spooked","terrified")]![pick("","!","!!")]</b><span>",\
-				"<span style='color:red'><b>You've never felt so [pick("scared","spooked","terrified")]![pick("","!","!!")]</b><span>",\
+				var/msg = pick("<span class='alert'><b>You're [pick("hella","super","very","extremely","completely","totally")] [pick("scared","spooked","terrified")]![pick("","!","!!")]</b><span>",\
+				"<span class='alert'><b>You've never felt so [pick("scared","spooked","terrified")]![pick("","!","!!")]</b><span>",\
 				"Oh, it's just a decoration.[pick(""," You were kinda spooked for a moment there."," That's a relief!")]")
 				M.show_text(msg)
 
 	proc/spooky_shake()
 		set waitfor = 0
 		for (var/i=src.trigger_duration, i>0, i--)
-			src.dir = pick(cardinal)
+			src.set_dir(pick(cardinal))
 			src.pixel_x = rand(-3,3)
 			sleep(0.1 SECONDS)

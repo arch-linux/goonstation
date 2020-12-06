@@ -132,7 +132,7 @@
 		PCEL.use(30 * src.range * (power_level * power_level))
 		var/charge_percentage = 0
 		var/current_battery_level = 0
-		if(PCEL && PCEL.charge > 0 && PCEL.maxcharge > 0)
+		if(PCEL?.charge > 0 && PCEL.maxcharge > 0)
 			charge_percentage = round((PCEL.charge/PCEL.maxcharge)*100)
 			switch(charge_percentage)
 				if(75 to 100)
@@ -147,7 +147,7 @@
 			src.build_icon()
 			if(src.battery_level == 1)
 				playsound(src.loc, src.sound_battwarning, 50, 1)
-				src.visible_message("<span style=\"color:red\">The <b>[src.name] emits a low battery alarm!</b></span>")
+				src.visible_message("<span class='alert'>The <b>[src.name] emits a low battery alarm!</b></span>")
 
 		if(PCEL.charge < 0)
 			src.visible_message("The <b>[src.name]</b> runs out of power and shuts down.")
@@ -159,7 +159,7 @@
 		if(!the_range)
 			return
 		if(get_dist(user,src) > 1)
-			boutput(user, "<span style=\"color:red\">You flail your arms at [src.name] from across the room like a complete muppet. Move closer, genius!</span>")
+			boutput(user, "<span class='alert'>You flail your arms at [src.name] from across the room like a complete muppet. Move closer, genius!</span>")
 			return
 		the_range = max(src.min_range,min(the_range,src.max_range))
 		src.range = the_range
@@ -169,15 +169,15 @@
 			shield_off()
 			sleep(0.5 SECONDS)
 			shield_on()
-		boutput(user, "<span style=\"color:blue\">[outcome_text]</span>")
+		boutput(user, "<span class='notice'>[outcome_text]</span>")
 
 	proc/pulse(var/mob/user)
 		set_range(user)
 
-	examine()
+	get_desc(dist, mob/user)
 		. = ..()
 		var/charge_percentage = 0
-		if(PCEL && PCEL.charge > 0 && PCEL.maxcharge > 0)
+		if(PCEL?.charge > 0 && PCEL.maxcharge > 0)
 			charge_percentage = round((PCEL.charge/PCEL.maxcharge)*100)
 			. += "It has [PCEL.charge]/[PCEL.maxcharge] ([charge_percentage]%) battery power left."
 			. += "The range setting is set to [src.range]."
@@ -212,7 +212,7 @@
 	attackby(obj/item/W as obj, mob/user as mob)
 		if(ispryingtool(W))
 			if(!anchored)
-				src.dir = turn(src.dir, 90)
+				src.set_dir(turn(src.dir, 90))
 			else
 				boutput(user, "You don't think you should mess around with the [src.name] while it's active.")
 		else if(ispulsingtool(W))
@@ -586,7 +586,7 @@
 			var/obj/machinery/door/door = (locate() in src.loc)
 			if(door)
 				door.linked_forcefield = src
-				src.dir = door.dir
+				src.set_dir(door.dir)
 
 /obj/machinery/door/disposing()
 	if(linked_forcefield)

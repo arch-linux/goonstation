@@ -22,6 +22,7 @@
 	var/obj/item/organ/stomach = null
 	var/obj/item/organ/intestines = null
 	var/obj/item/organ/appendix = null
+	var/obj/item/organ/tail = null
 	var/lungs_changed = 2				//for changing lung stamina debuffs if it has changed since last cycle. starts at 2 for having 2 working lungs
 
 	var/list/organ_list = list("all", "head", "skull", "brain", "left_eye", "right_eye", "chest", "heart", "left_lung", "right_lung", "butt", "left_kidney", "right_kidney", "liver", "stomach", "intestines", "spleen", "pancreas", "appendix")
@@ -44,55 +45,81 @@
 		"stomach"="/obj/item/organ/stomach",
 		"intestines"="/obj/item/organ/intestines",
 		"appendix"="/obj/item/organ/appendix",
-		"butt"="/obj/item/clothing/head/butt")
+		"butt"="/obj/item/clothing/head/butt",
+		"tail"="/obj/item/organ/tail")
 
-	New(var/mob/living/L)
+	New(var/mob/living/L, var/ling)
 		..()
 		if (!ishuman(L))
 			return
 		if (istype(L))
 			src.donor = L
-		if (src.donor)
+		if (src.donor && !ling) // so changers just get the datum and not a metric fuckton of organs
 			src.create_organs()
 
-	dispose()
+	disposing()
+		src.organ_list.len = 0
+		src.organ_list = null
+
 		if (head)
 			head.donor = null
+			chest?.bones?.donor = null
+			head.holder = null
 		if (skull)
 			skull.donor = null
+			skull.holder = null
 		if (brain)
 			brain.donor = null
-			brain.owner = null
+			brain.holder = null
 		if (left_eye)
 			left_eye.donor = null
+			left_eye.holder = null
 		if (right_eye)
 			right_eye.donor = null
+			right_eye.holder = null
 		if (chest)
 			chest.donor = null
+			chest?.bones?.donor = null
+			chest.holder = null
 		if (heart)
 			heart.donor = null
+			heart.holder = null
 		if (left_lung)
 			left_lung.donor = null
+			left_lung.holder = null
 		if (right_lung)
 			right_lung.donor = null
+			right_lung.holder = null
 		if (butt)
 			butt.donor = null
+			butt.holder = null
 		if (left_kidney)
 			left_kidney.donor = null
+			left_kidney.holder = null
 		if (right_kidney)
 			right_kidney.donor = null
+			right_kidney.holder = null
 		if (liver)
 			liver.donor = null
+			liver.holder = null
 		if (stomach)
 			stomach.donor = null
+			stomach.holder = null
 		if (intestines)
 			intestines.donor = null
+			intestines.holder = null
 		if (spleen)
 			spleen.donor = null
+			spleen.holder = null
 		if (pancreas)
 			pancreas.donor = null
+			pancreas.holder = null
 		if (appendix)
 			appendix.donor = null
+			appendix.holder = null
+		if (tail)
+			tail.donor = null
+			tail.holder = null
 
 		head = null
 		skull = null
@@ -112,6 +139,7 @@
 		spleen = null
 		pancreas = null
 		appendix = null
+		tail = null
 
 		donor = null
 		..()
@@ -146,6 +174,11 @@
 			if ("right_kidney")
 				if (!get_working_kidney_amt())
 					donor.take_toxin_damage(2, 1)
+			if ("tail")
+				if(ischangeling(donor) || src.donor?.reagents?.get_reagent_amount("ethanol") > 50) // drunkenness prevents tail-clumsiness
+					return
+				if (donor.mob_flags & SHOULD_HAVE_A_TAIL) // Only become clumsy if you should have a tail and are not a shapeshifting alien
+					donor.bioHolder?.AddEffect("clumsy", 0, 0, 0, 1)
 			//Missing lungs is handled in it's own proc right now. I'll probably move it here eventually, but that's how I did it originally before I thought of a thing for handling missing organs in the organholder and I'm not rewriting such a tedious thing now.
 
 
@@ -202,17 +235,17 @@
 	//organs should not perform their functions if they have 100 damage
 	proc/get_working_kidney_amt()
 		var/count = 0
-		if (left_kidney && (left_kidney.broken || left_kidney.get_damage() < left_kidney.MAX_DAMAGE))
+		if (left_kidney && (!left_kidney.broken && left_kidney.get_damage() <= left_kidney.FAIL_DAMAGE))
 			count++
-		if (right_kidney && (right_kidney.broken || right_kidney.get_damage() < right_kidney.MAX_DAMAGE))
+		if (right_kidney && (!right_kidney.broken && right_kidney.get_damage() <= right_kidney.FAIL_DAMAGE))
 			count++
 		return count
 
 	proc/get_working_lung_amt()
 		var/count = 0
-		if (left_lung && (left_lung.broken || left_lung.get_damage() < left_lung.MAX_DAMAGE))
+		if (left_lung && (!left_lung.broken && left_lung.get_damage() <= left_lung.FAIL_DAMAGE))
 			count++
-		if (right_lung && (right_lung.broken || right_lung.get_damage() < right_lung.MAX_DAMAGE))
+		if (right_lung && (!right_lung.broken && right_lung.get_damage() <= right_lung.FAIL_DAMAGE))
 			count++
 		return count
 
@@ -309,6 +342,9 @@
 		if (!src.appendix)
 			src.appendix = new /obj/item/organ/appendix(src.donor, src)
 			organ_list["appendix"] = appendix
+		if (!src.tail)
+			src.tail = null	// Humans dont have tailbones, fun fact
+			organ_list["tail"] = tail
 
 	//input organ = string value of organ_list assoc list
 	proc/get_organ(var/organ)
@@ -365,6 +401,8 @@
 				organ = "pancreas"
 			else if(organ == appendix)
 				organ = "appendix"
+			else if(organ == tail)
+				organ = "tail"
 			else
 				return 0 // what the fuck are you trying to remove
 
@@ -424,7 +462,7 @@
 						W.set_loc(myHead)
 						myHead.wear_mask = W
 				myHead.set_loc(location)
-				myHead.update_headgear_image()
+				myHead.update_head_image()
 				myHead.on_removal()
 				myHead.holder = null
 				src.head = null
@@ -473,7 +511,7 @@
 				myBrain.holder = null
 				src.brain = null
 				src.organ_list["brain"] = null
-				src.head.brain = null
+				src.head?.brain = null
 				return myBrain
 
 			if ("left_eye")
@@ -515,8 +553,6 @@
 				if (!src.heart)
 					return 0
 				var/obj/item/organ/heart/myHeart = src.heart
-				if (src.donor.reagents)
-					src.donor.reagents.trans_to(myHeart, 330)
 				//Commented this out for some reason I forget. I'm sure I'll remember what it is one day. -kyle
 				// if (src.heart.robotic)
 				// 	src.donor.remove_stam_mod_regen("heart")
@@ -662,6 +698,18 @@
 				src.donor.update_body()
 				src.organ_list["appendix"] = null
 				return myappendix
+
+			if ("tail")
+				if (!src.tail)
+					return 0
+				var/obj/item/organ/tail/mytail = src.tail
+				mytail.set_loc(location)
+				mytail.on_removal()
+				mytail.holder = null
+				src.tail = null
+				src.donor.update_body()
+				src.organ_list["tail"] = null
+				return mytail
 
 	proc/receive_organ(var/obj/item/I, var/organ, var/op_stage = 0.0, var/force = 0)
 		if (!src.donor || !I || !organ)
@@ -836,7 +884,7 @@
 				var/obj/item/organ/heart/newHeart = I
 				if (newHeart.robotic)
 					if (src.donor.bioHolder.HasEffect("elecres"))
-						newHeart.broken = 1
+						newHeart.breakme()
 					if (newHeart.broken || src.donor.bioHolder.HasEffect("elecres"))
 						src.donor.show_text("Something is wrong with [newHeart], it fails to start beating!", "red")
 						src.donor.contract_disease(/datum/ailment/malady/flatline,null,null,1)
@@ -1012,12 +1060,25 @@
 				organ_list["appendix"] = newappendix
 				success = 1
 
+			if ("tail")
+				if (src.tail)
+					if (force)
+						qdel(src.tail)
+					else
+						return 0
+				var/obj/item/organ/tail/newtail = I
+				newtail.op_stage = op_stage
+				src.tail = newtail
+				newtail.set_loc(src.donor)
+				newtail.holder = src
+				organ_list["tail"] = newtail
+				src.donor.update_body()
+				success = 1
+
 		if (success)
 			if (istype(I, /obj/item/organ))
 				var/obj/item/organ/O = I
 				O.on_transplant(src.donor)
-			if (I.reagents)
-				I.reagents.trans_to(src.donor, 330)
 			if (is_full_robotic())
 				donor.unlock_medal("Spaceship of Theseus", 1)
 			return 1
@@ -1035,7 +1096,7 @@
 					return 0
 
 			//moved out of for loop and just continue past "butt". I think this is slightly more efficient.
-			var/obj/machinery/bot/buttbot/cyber/B = organ_list["butt"]
+			var/obj/item/clothing/head/butt/cyberbutt/B = organ_list["butt"]
 			//if it's not robotic we're done, return 0
 			if (istype(B))
 				return 1
@@ -1123,13 +1184,11 @@
 /*---------- Critter Stuff --------*/
 /*=================================*/
 
-
-
 /datum/organHolder/critter //for the animals. same stuff as human, but with a brain as the only organ
 
 	New(var/mob/living/L, var/obj/item/organ/brain/custom_brain_type)
 		..()
-		if (!iscritter(L))
+		if (!ismobcritter(L))
 			return
 		if (istype(L))
 			src.donor = L
@@ -1279,13 +1338,13 @@
 
 	castcheck()
 		if (!linked_organ || (!islist(src.linked_organ) && linked_organ.loc != holder.owner))
-			boutput(holder.owner, "<span style='color:red'>You can't use that ability right now.</span>")
+			boutput(holder.owner, "<span class='alert'>You can't use that ability right now.</span>")
 			return 0
 		else if (incapacitationCheck())
-			boutput(holder.owner, "<span style='color:red'>You can't use that ability while you're incapacitated.</span>")
+			boutput(holder.owner, "<span class='alert'>You can't use that ability while you're incapacitated.</span>")
 			return 0
 		else if (disabled)
-			boutput(holder.owner, "<span style='color:red'>You can't use that ability right now.</span>")
+			boutput(holder.owner, "<span class='alert'>You can't use that ability right now.</span>")
 			return 0
 		return 1
 
@@ -1296,7 +1355,7 @@
 			return 1
 		actions.interrupt(holder.owner, INTERRUPT_ACT)
 		if (ismob(target))
-			logTheThing("combat", holder.owner, target, "used ability [src.name] ([src.linked_organ]) on %target%.")
+			logTheThing("combat", holder.owner, target, "used ability [src.name] ([src.linked_organ]) on [constructTarget(target,"combat")].")
 		else if (target)
 			logTheThing("combat", holder.owner, null, "used ability [src.name] ([src.linked_organ]) on [target].")
 		else
@@ -1370,3 +1429,149 @@
 		if (istype(M))
 			M.toggle()
 			src.is_on = M.on
+		if(is_on)
+			src.icon_state = initial(src.icon_state)
+		else
+			src.icon_state = "[initial(src.icon_state)]_cd"
+
+
+/datum/targetable/organAbility/kidneypurge
+	name = "Kidney Purge"
+	desc = "Dangerously overclock your cyberkidneys to rapidly purge chemicals from your blood."
+	icon_state = "cyberkidney"
+	targeted = 0
+	cooldown = 40 SECONDS
+	var/power = 6
+
+	cast(atom/target)
+		if (..())
+			return 1
+
+		if(length(linked_organ))
+			for(var/obj/item/organ/O in linked_organ)
+				O.take_damage(15, 15) //safe-ish
+		else
+			linked_organ.take_damage(30, 30) //not safe
+		boutput(holder.owner, "<span class='notice'>You overclock your cyberkidney[islist(linked_organ) ? "s" : ""] to rapidly purge chemicals from your body.</span>")
+		APPLY_MOB_PROPERTY(holder.owner, PROP_CHEM_PURGE, src, power)
+		holder.owner.urine += power // -.-
+		SPAWN_DBG(15 SECONDS)
+			if(holder?.owner)
+				REMOVE_MOB_PROPERTY(holder.owner, PROP_CHEM_PURGE, src)
+
+	proc/cancel_purge()
+		if(holder?.owner)
+			REMOVE_MOB_PROPERTY(holder.owner, PROP_CHEM_PURGE, src)
+
+/datum/targetable/organAbility/liverdetox
+	name = "\"Detox\" Toggle"
+	desc = "Activate the experimental \"detoxification\" function of your liver to metabolize ethanol into omnizine."
+	icon_state = "cyberliver"
+	targeted = 0
+	toggled = 1
+	cooldown = 5
+	is_on = 0
+
+	New()
+		..()
+		src.icon_state = "[initial(src.icon_state)]_cd"
+
+	cast(atom/target)
+		if (..())
+			return 1
+
+		var/obj/item/organ/liver/cyber/L = linked_organ
+		if (istype(L))
+			L.overloading = !L.overloading
+			src.is_on = L.overloading
+			boutput(holder.owner, "<span class='notice'>You [is_on ? "" : "de"]activate the \"detox\" mode on your cyberliver.</span>")
+		if(is_on)
+			src.icon_state = initial(src.icon_state)
+		else
+			src.icon_state = "[initial(src.icon_state)]_cd"
+
+/datum/targetable/organAbility/quickdigest
+	name = "Rapid Digestion"
+	desc = "Force your cyberintestines to rapidly process the contents of your stomach. This can't be healthy."
+	icon_state = "cyberintestine"
+	targeted = 0
+	cooldown = 40 SECONDS
+
+	cast(atom/target)
+		if (..())
+			return 1
+
+		linked_organ.take_damage(20, 20) //not safe
+		if(istype(holder.owner, /mob/living))
+			var/mob/living/L = holder.owner
+			if (L.stomach_process && L.stomach_process.len)
+				boutput(L, "<span class='notice'>You force your cyberintestines to rapidly process the contents of your stomach.</span>")
+				for(var/obj/item/reagent_containers/food/snacks/bite/B in L.stomach_process)
+					B.process_stomach(L, (B.reagents.total_volume)) //all of the food!
+			else
+				boutput(L, "<span class='alert'>Your intestines crunch painfully in your gut. Maybe they would work better with some food to process.</span>")
+				linked_organ.take_damage(30) //owwww
+
+
+/datum/targetable/organAbility/projectilevomit
+	name = "Projectile Vomiting"
+	desc = "Upchuck your stomach contents with deadly force."
+	icon_state = "cyberstomach"
+	targeted = 1
+	target_anything = 1
+	cooldown = 10
+
+	cast(atom/target)
+		if (..())
+			return 1
+
+		if(istype(holder.owner, /mob/living))
+			var/mob/living/L = holder.owner
+			if (L.stomach_process && L.stomach_process.len)
+				L.visible_message("<span class='alert'>[L] convulses and vomits right at [target]!</span>", "<span class='alert'>You upchuck some of your cyberstomach contents at [target]!</span>")
+				SPAWN_DBG(0)
+					for (var/i in 1 to 3)
+						var/obj/item/O = L.vomit()
+						O.throw_at(target, 8, 3, bonus_throwforce=5)
+						linked_organ.take_damage(3)
+						sleep(0.1 SECONDS)
+						if(linked_organ.broken || !L.stomach_process.len)
+							break
+			else
+				boutput(L, "<span class='alert'>You try to vomit, but your cyberstomach has nothing left inside!</span>")
+				linked_organ.take_damage(30) //owwww
+				L.vomit()
+
+/datum/targetable/organAbility/rebreather
+	name = "Rebreather Toggle"
+	desc = "Dangerously overload your cyberlungs to completely pause your breathing. Any oxygen deprivation already suffered will not be cleared, however."
+	icon_state = "cyberlung"
+	targeted = 0
+	toggled = 1
+	cooldown = 5
+	is_on = 0
+
+	New()
+		..()
+		src.icon_state = "[initial(src.icon_state)]_cd"
+
+	cast(atom/target)
+		if (..())
+			return 1
+		if(!islist(linked_organ) && !is_on)
+			boutput(holder.owner, "<span class='notice'>This ability is only usable with two unregulated cyberlungs!</span>")
+			return 1
+
+		src.is_on = !src.is_on
+		boutput(holder.owner, "<span class='notice'>You [is_on ? "" : "de"]activate the rebreather mode on your cyberlungs.</span>")
+		for(var/obj/item/organ/lung/cyber/L in linked_organ)
+			L.overloading = is_on
+		if(is_on)
+			APPLY_MOB_PROPERTY(holder.owner, PROP_REBREATHING, "cyberlungs")
+		else
+			REMOVE_MOB_PROPERTY(holder.owner, PROP_REBREATHING, "cyberlungs")
+
+		if(is_on)
+			src.icon_state = initial(src.icon_state)
+		else
+			src.icon_state = "[initial(src.icon_state)]_cd"
