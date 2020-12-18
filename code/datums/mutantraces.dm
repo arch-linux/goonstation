@@ -21,8 +21,6 @@
 								// but they must explicitly specify if they're overriding via this var
 	var/override_language = null // set to a language ID to replace the language of the human
 	var/understood_languages = list() // additional understood languages (in addition to override_language if set, or english if not)
-	/// whether fat icons/disabilities are used
-	var/allow_fat = 0
 	/** Mutant Appearance Flags - used to modify how the mob is drawn
 	*
 	* For a purely static-icon mutantrace (drawn from a single, non-chunked image), use:
@@ -97,6 +95,9 @@
 	var/head_offset = 0 // affects pixel_y of clothes
 	var/hand_offset = 0
 	var/body_offset = 0
+	var/arm_offset = 0
+	/// affects pixel_y of the legs and stump, in case the mutant has a non-human length torsocrotch
+	var/leg_offset = 0
 	/// affects pixel_y of eyes if they're different from normal head-placement. darn anime monkey eyes
 	/// If 0, it inherits that of the head offset. Otherwise, it applies as normal
 	/// So, it should typically be something like head_offset +/- a few pixels
@@ -125,6 +126,9 @@
 	var/firevuln = 1 //Scales damage, just like critters.
 	var/brutevuln = 1
 	var/toxvuln = 1
+
+	var/list/typevulns
+
 	/// ignores suffocation from being underwater + moves at full speed underwater
 	var/aquatic = 0
 	var/needs_oxy = 1
@@ -250,7 +254,7 @@
 
 
 
-			SPAWN_DBG (25) // Don't remove.
+			SPAWN_DBG(2.5 SECONDS) // Don't remove.
 				if (M?.organHolder?.skull)
 					M.assign_gimmick_skull() // For hunters (Convair880).
 			if (movement_modifier) // down here cus it causes runtimes
@@ -293,7 +297,7 @@
 				H.set_body_icon_dirty()
 				H.update_colorful_parts()
 
-				SPAWN_DBG (25) // Don't remove.
+				SPAWN_DBG(2.5 SECONDS) // Don't remove.
 					if (H?.organHolder?.skull) // check for H.organHolder as well so we don't get null.skull runtimes
 						H.assign_gimmick_skull() // We might have to update the skull (Convair880).
 
@@ -348,6 +352,12 @@
 				AH.mob_oversuit_1_color_ref = src.detail_oversuit_1_color
 				AH.mob_oversuit_1_offset_y = src.body_offset
 
+				AH.mob_head_offset = src.head_offset
+				AH.mob_hand_offset = src.hand_offset
+				AH.mob_body_offset = src.body_offset
+				AH.mob_leg_offset = src.leg_offset
+				AH.mob_arm_offset = src.arm_offset
+
 				if (src.mutant_appearance_flags & FIX_COLORS)	// mods the special colors so it doesnt mess things up if we stop being special
 					AH.customization_first_color = fix_colors(AH.customization_first_color)
 					AH.customization_second_color = fix_colors(AH.customization_second_color)
@@ -384,6 +394,11 @@
 				AH.customization_first_offset_y = 0
 				AH.customization_second_offset_y = 0
 				AH.customization_third_offset_y = 0
+				AH.mob_head_offset = 0
+				AH.mob_hand_offset = 0
+				AH.mob_body_offset = 0
+				AH.mob_arm_offset = 0
+				AH.mob_leg_offset = 0
 				AH.e_offset_y = 0 // Fun fact, monkey eyes are right at nipple height
 				AH.mob_oversuit_1_offset_y = 0
 				AH.mob_detail_1_offset_y = 0
@@ -628,6 +643,8 @@
 	hand_offset = -1
 	body_offset = -8
 	voice_override = "bloop"
+	firevuln = 1.5
+	typevulns = list("cut" = 1.25, "stab" = 0.5, "blunt" = 0.75)
 
 	say_verb()
 		return pick("burbles", "gurgles", "blurbs", "gloops")
@@ -754,7 +771,6 @@
 /datum/mutantrace/lizard
 	name = "lizard"
 	icon_state = "lizard"
-	allow_fat = 1
 	override_attack = 0
 	mutant_appearance_flags = (NOT_DIMORPHIC | HAS_HUMAN_EYES | BUILT_FROM_PIECES | HAS_EXTRA_DETAILS | FIX_COLORS | SKINTONE_USES_PREF_COLOR_1 | HAS_SPECIAL_HAIR | TORSO_HAS_SKINTONE)
 	voice_override = "lizard"
@@ -851,10 +867,9 @@
 			M.add_stam_mod_regen("zombie", -5)
 
 	proc/make_bubs(var/mob/living/carbon/human/M)
-		M.bioHolder.AddEffect("fat")
 		M.bioHolder.AddEffect("strong")
 		M.bioHolder.AddEffect("mattereater")
-		M.Scale(1.15, 1.15) //Fat bioeffect wont work, so they're just bigger now.
+		M.Scale(1.15, 1.15) //Fat bioeffect doesn't exist anymore, so they're just bigger now.
 		M.max_health += 150
 		M.health = max(M.max_health, M.health)
 
@@ -1145,6 +1160,10 @@
 		if (drains_dna_on_life) //Do you continuously lose DNA points when in this form?
 			var/datum/abilityHolder/changeling/C = mob.get_ability_holder(/datum/abilityHolder/changeling)
 
+			if(!C)
+				mob.show_text("<I><B>You cannot hold this form!</B></I>", "red")
+				mob.revert_from_horror_form()
+
 			if (C?.points)
 				if (last_drain + 30 <= world.time)
 					C.points = max(0, C.points - (1 * mult))
@@ -1173,7 +1192,7 @@
 					mob.emote_allowed = 0
 					message = "<span class='alert'><B>[mob] screeches!</B></span>"
 					playsound(get_turf(mob), "sound/voice/creepyshriek.ogg", 60, 1, channel=VOLUME_CHANNEL_EMOTE)
-					SPAWN_DBG (30)
+					SPAWN_DBG(3 SECONDS)
 						if (mob) mob.emote_allowed = 1
 		return message
 
@@ -1329,7 +1348,6 @@
 /datum/mutantrace/ithillid
 	name = "ithillid"
 	icon_state = "squid"
-	allow_fat = 1
 	jerk = 1
 	override_attack = 0
 	aquatic = 1
@@ -1356,10 +1374,12 @@
 	icon = 'icons/mob/monkey.dmi'
 	mutant_folder = 'icons/mob/monkey.dmi'
 	icon_state = "monkey"
-	head_offset = -9
+	head_offset = -8
 	eye_offset = -8 // jeepers creepers their peepers are a pixel higher than human peepers
 	hand_offset = -5
 	body_offset = -7
+	leg_offset = -4
+	arm_offset = -8
 	human_compatible = TRUE
 	special_head = HEAD_MONKEY
 	special_head_state = "head"
@@ -1628,11 +1648,13 @@
 	r_limb_leg_type_mutantrace = /obj/item/parts/human_parts/leg/mutant/roach/right
 	l_limb_leg_type_mutantrace = /obj/item/parts/human_parts/leg/mutant/roach/left
 	mutant_appearance_flags = (NOT_DIMORPHIC | HAS_NO_SKINTONE | HAS_NO_HAIR | HAS_NO_EYES | BUILT_FROM_PIECES | HEAD_HAS_OWN_COLORS)
+	typevulns = list("blunt" = 1.66, "crush" = 1.66)
 
 	New(mob/living/carbon/human/M)
 		. = ..()
 		if(ishuman(M))
 			M.mob_flags |= SHOULD_HAVE_A_TAIL
+		APPLY_MOB_PROPERTY(M, PROP_RADPROT, src, 100)
 
 	say_verb()
 		return "clicks"
@@ -1644,6 +1666,8 @@
 	disposing()
 		if(ishuman(mob))
 			mob.mob_flags &= ~SHOULD_HAVE_A_TAIL
+		if(mob)
+			REMOVE_MOB_PROPERTY(mob, PROP_RADPROT, src)
 		. = ..()
 
 /datum/mutantrace/cat // we have the sprites so ~why not add them~? (I fully expect to get shit for this)
@@ -1693,7 +1717,6 @@
 	head_offset = 0
 	hand_offset = -3
 	body_offset = -3
-	allow_fat = 1
 	movement_modifier = /datum/movement_modifier/amphibian
 	var/original_blood_color = null
 	mutant_folder = 'icons/mob/amphibian.dmi'
@@ -1721,8 +1744,6 @@
 			M.bioHolder.AddEffect("jumpy")
 			M.bioHolder.AddEffect("vowelitis")
 			M.bioHolder.AddEffect("accent_chav")
-			if(allow_fat)
-				M.bioHolder.AddEffect("fat")
 
 
 	disposing()
@@ -1744,7 +1765,7 @@
 					mob.emote_allowed = 0
 					message = "<span class='alert'><B>[mob] makes an awful noise!</B></span>"
 					playsound(get_turf(mob), pick("sound/voice/screams/frogscream1.ogg","sound/voice/screams/frogscream3.ogg","sound/voice/screams/frogscream4.ogg"), 60, 1, channel=VOLUME_CHANNEL_EMOTE)
-					SPAWN_DBG (30)
+					SPAWN_DBG(3 SECONDS)
 						if (mob) mob.emote_allowed = 1
 					return message
 
@@ -1761,7 +1782,6 @@
 /datum/mutantrace/amphibian/shelter
 	name = "Shelter Amphibian"
 	// icon_state = "shelter"
-	allow_fat = 0
 	human_compatible = 1
 	jerk = 0
 	var/permanent = 0
@@ -1903,7 +1923,6 @@
 /datum/mutantrace/cow
 	name = "cow"
 	icon_state = "cow"
-	allow_fat = 1
 	override_attack = 0
 	voice_override = "cow"
 	race_mutation = /datum/bioEffect/mutantrace/cow
@@ -1997,7 +2016,6 @@
 /datum/mutantrace/chicken
 	name = "Chicken"
 	icon_state = "chicken_m"
-	allow_fat = 0
 	human_compatible = 1
 	jerk = 0
 	race_mutation = /datum/bioEffect/mutantrace/chicken
